@@ -47,6 +47,13 @@
 - 当前测试：51 项通过。
 - 下一步：README/BUILD 文档、PyInstaller 打包尝试、GitHub 推送（gh 未安装，需用户授权）。
 
+## 2026-10-14：打包与 GitHub 归档完成
+
+- PyInstaller 打包成功：`dist/FrameSenseColorLab/FrameSenseColorLab.exe`，并完成启动验证（进程正常存活）。
+- 使用 Windows 凭据管理器中的 GitHub 凭据，创建公开仓库 `KUVIwch/framesense` 并推送全部提交。
+- 最终全量测试：51 项通过。
+- 本地与远程 `main` 分支 HEAD 一致（`e861b2b`）。
+
 ## 断网检查点：2026-10-14（暂停前状态）
 
 **已完成并提交：**
