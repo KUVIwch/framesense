@@ -37,3 +37,26 @@
 - 阶段 G：GitHub 提交与推送。
 
 本日志会按实际进度继续补充。
+
+## 断网检查点：2026-10-14（暂停前状态）
+
+**已完成并提交：**
+
+- 阶段 A：初始化 Git；旧版 V0.1/V0.2 存档（tag `v0.1-streamlit`）；docs 历史文档。
+- 阶段 B：离线核心 `framesense/core`（色彩管理/加载/统计/区域/双图对比），31 项测试通过。
+- 阶段 C：调色教学引擎 `framesense/guidance`，5 项测试通过。
+- 已提交 commit：`chore: archive ...`、`docs: record framesense project history`、`refactor: establish color lab architecture`、`feat: add grading guidance engine`。
+
+**当前未提交（已创建、编译通过）：**
+
+- `framesense/learning/`：学习会话 SQLite 持久化（models + session），**测试尚未编写**。
+
+**下一步待完成：**
+
+1. 补 `tests/learning/` 学习会话测试。
+2. 阶段 D：PySide6 桌面 UI（`framesense/ui/`：主窗口、图像视图、直方图/颜色样本控件）。
+3. 阶段 E：仿色复盘（导入最终作品、对比、标记有意差异）。
+4. 阶段 F：全量测试、README、BUILD 文档、PyInstaller 打包尝试。
+5. 阶段 G：GitHub 提交与推送（gh CLI 未安装、未认证，需要用户授权后处理）。
+
+**当前测试状态**：36 项通过（31 core + 5 guidance）；learning 测试待补。
