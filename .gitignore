@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# 环境变量（含 API Key）
+.env
+
+# 隐私数据：用户会话、练习历史、数据库
+data/
+*.db
+
+# 生成物与中间文件
+outputs/demo_frames/
+outputs/reports/
+outputs/
+work/
+
+# 构建产物
+dist/
+build/
+*.spec
+
+# IDE
+.idea/
+.vscode/
