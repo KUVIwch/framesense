@@ -1,34 +1,40 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="framesense/assets/readme-wordmark-dark.svg">
+  <img src="framesense/assets/readme-wordmark-light.svg" width="340" alt="FrameSense Color Lab">
+</picture>
+
 # FrameSense · Color Lab
 
-FrameSense · Color Lab 是一个**离线优先的摄影仿色分析与学习工具**，运行在 Windows 桌面。
+一张参考作品，一张自己的原片。先看影调与颜色差在哪里，再到 Camera Raw 里试调，最后带着结果回来比较。
 
-它解决一个问题：你有一张喜欢的摄影作品（参考图）和一张自己的原片，软件分析两者的**客观颜色与明暗差异**，给出可解释、可执行的调色指导，并支持练习与复盘。
+FrameSense 是离线的 Windows 仿色学习工具。它提供测量、试调方向和练习记录，让你逐渐形成自己的判断。当前版本为 **0.3.0-preview**，仍需真实摄影素材与更多屏幕环境试用。
 
-核心理念：**不是让用户永远依赖工具，而是让用户从模仿开始，逐渐拥有独立判断颜色与影调的能力。**
+## 一次练习
 
-## 为什么开发它
+1. 把参考作品和原片拖到对应画布，或点「放入」选择文件。
+2. 滚轮缩放、拖动平移；「联动查看」按相对倍率与位置同步。
+3. Shift 拖动框选两块含义相近的区域，例如同样的肤色、墙面或天空。
+4. 点「看看差在哪」，从影调、色度与区域关系挑一两个重点。
+5. 在 Camera Raw / Photoshop 调整；导出 Markdown 清单可边做边看。
+6. 放入调后作品，切换原片、成片或参考叠图，再写下值得保留的变化。
 
-作者使用 Sony NEX-5N 拍照，长期被“照片差了一点感觉”困扰。市面上的修图软件和 AI 一键调色很多，但缺一个能帮助用户**理解差距、学会仿色**的工具。完整故事见 [docs/PROJECT_STORY.md](docs/PROJECT_STORY.md)。
+引导模式显示完整解释；练习模式先隐藏操作，点提示再展开；独立模式保留自己的观察空间。切换模式不丢照片、区域或笔记。
 
-## 当前真正支持的功能（不夸大）
+## 这一版实际做了什么
 
-- **双图导入**：参考作品 + 原片，支持 JPG、PNG；Sony ARW 通过 rawpy 解码为 sRGB（兼容性问题会明确报错，不伪造支持）。
-- **色彩管理**：读取嵌入的 ICC 配置文件并转换到统一 sRGB 工作空间；缺失配置文件时按 sRGB 假设并标记。
-- **客观分析**：亮度直方图、明暗比例、亮度百分位、对比度、饱和度/色度、主色、高光/暗部色偏、灰世界色偏估计。
-- **双图差异**：直方图距离、平均 Lab 色差（ΔE76）、亮度差、色度差。
-- **对应区域分析**：在两张图上分别选择矩形区域，计算区域均值色差（ΔE76 / ΔE00）与明暗差异。
-- **调色指导引擎（离线规则）**：根据客观差异生成分步指导，包含观察、依据、目标、工具（Camera Raw / Photoshop）、操作方向、预期效果、副作用、调整后观察点；区分事实/推测/建议，不编造精确滑块数值。
-- **三种学习模式**：引导模式（完整步骤）、练习模式（默认隐藏具体操作）、独立模式（隐藏操作，自行尝试）。
-- **仿色复盘**：导入调色后的最终作品，对比其与参考图的 ΔE 是否比原片更接近。
-- **学习会话**：保存参考图/原片/最终作品路径、区域、指导、笔记到本地 SQLite；路径失效时提示重新定位。
-- **完全离线**：核心功能不依赖任何 API Key、不产生网络请求。
+- 原创取景框与色彩切片标识，深浅两套主题，照片优先的可调整三栏工作台。
+- JPG / PNG / Sony ARW 只读加载，应用 EXIF 方向，读取 ICC 并转换到 sRGB。无配置与损坏配置会明确标记。
+- 后台加载、分析与区域取样；可以取消，过时结果不会替换当前工作台。正在执行的原生解码不能中途强杀。
+- 内容哈希与算法版本作缓存键，默认上限 128 MiB / 24 条；缓存不落盘，原图不改动。
+- 亮度分布、三段影调、HSL 饱和度、Lab 色度、主色和对应区域 ΔE00。不同尺寸、不同构图可做全局分布比较。
+- 可解释的离线调色规则，区分测量、经验与建议。不会从 JPEG 唯一反推作者参数。
+- 本地 SQLite 练习记录、目标、笔记、区域、结果与查看状态；原子草稿与切换前恢复；丢失路径可重新定位。
 
-## 明确不做什么（当前版本）
+全局平均颜色 ΔE 不是风格分数，也不是照片好坏评分。场景内容、构图、拍摄光线都会影响统计；尽量同时比较对应区域。
 
-- 不做完整修图器、不做 Photoshop 自动操控、不做在线账号、不做必须联网的 AI 分析。
-- 更长远的方向见 [docs/ROADMAP.md](docs/ROADMAP.md)。
+## 运行
 
-## 安装与运行（开发模式）
+需要 Python 3.11 或更新版本；本轮实际验证环境为 Windows、Python 3.14.5。
 
 ```powershell
 python -m venv .venv
@@ -36,53 +42,35 @@ python -m venv .venv
 .venv\Scripts\python.exe -m framesense.app
 ```
 
-## 命令行（无界面环境）
+本机已构建的预览包在 `outputs/windows-0.3.0-preview/FrameSenseColorLab/`。双击其中的 exe；请保留相邻的 `_internal` 文件夹。它不需要 API Key 或网络。构建方法见 [BUILD](docs/BUILD.md)。
+
+## 常用操作
+
+| 操作 | 按键 |
+| --- | --- |
+| 放入参考 / 原片 | Ctrl+O / Ctrl+Shift+O |
+| 保存练习 / 导出清单 | Ctrl+S / Ctrl+E |
+| 分析 / 收起观察栏 | Ctrl+Enter / Ctrl+B |
+| 适合窗口 / 放大缩小 | 画布内 F / +、− |
+| 区域 / 平移工具 | 画布内 R / V |
+| 临时框选 / 清除区域 | Shift 拖动 / Esc |
+| 调整区域 | 方向键移动，Ctrl+方向键改变大小 |
+| 撤销区域选择 | Alt+Backspace |
+
+## 验证与测量
 
 ```powershell
-# 双图分析并生成指导 JSON
-.venv\Scripts\python.exe -m framesense.cli analyze 参考图.jpg 原片.jpg --output result.json
-
-# 学习会话管理
-.venv\Scripts\python.exe -m framesense.cli session create --reference 参考图.jpg --source 原片.jpg
-.venv\Scripts\python.exe -m framesense.cli session list
+.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp=work/test-run
+.venv\Scripts\python.exe tools/benchmark.py --mode optimized --output work/performance/rerun.json
+.venv\Scripts\python.exe tools/render_workbench.py
 ```
 
-## 打包为可执行程序
+24 MP 合成 JPG 核心工作流实测由 9.079 秒 / 1482.4 MiB 降至 1.852 秒 / 206.1 MiB。有限分辨率近似、首次导入和文件缓存都会影响结果，详见 [性能测量](docs/PERFORMANCE.md)，不能据此宣称 GUI 帧率。
 
-见 [docs/BUILD.md](docs/BUILD.md)。
+## 文档与边界
 
-## 测试
+[项目故事](docs/PROJECT_STORY.md) · [设计系统](docs/DESIGN_SYSTEM.md) · [交互取舍](docs/UX_DECISIONS.md) · [审查](docs/AUDIT.md) · [开发日志](docs/DEVLOG.md) · [验收记录](docs/QA.md) · [路线图](docs/ROADMAP.md)
 
-```powershell
-.venv\Scripts\python.exe -m pytest
-```
+原型基线保存在 `baseline-colorlab-20261014`；早期 Streamlit 版本保存在 `v0.1-streamlit`。当前数据只在本机 `data/`，构建程序使用 exe 旁的 `data/`，源码与打包程序的记录相互独立。
 
-## 项目结构
-
-```
-framesense/
-  core/       图像加载 / 色彩管理 / 统计 / 双图对比 / 区域分析
-  guidance/   调色指导引擎（结构化规则 + Pydantic 模型）
-  learning/   学习会话持久化（SQLite）
-  ui/         PySide6 桌面界面
-  app.py      桌面入口
-  cli.py      离线命令行工具
-tests/        自动化测试
-docs/         项目故事、决策、开发日志、路线图、构建说明
-```
-
-## 开发文档
-
-- [项目故事](docs/PROJECT_STORY.md)
-- [关键决策](docs/DECISIONS.md)
-- [开发日志](docs/DEVLOG.md)
-- [旧版 V0.1/V0.2 档案](docs/LEGACY_V0.1.md)
-- [路线图](docs/ROADMAP.md)
-- [构建说明](docs/BUILD.md)
-
-## 已知问题与限制
-
-- ARW 兼容性依赖 rawpy/LibRaw，个别机型可能失败；失败时会明确报错。
-- 调色指导是规则引擎，覆盖常见曝光/色温/饱和度/区域差异场景，复杂艺术风格不一定能覆盖。
-- 涉及滑块数值均为方向性起始范围，不是精确参数映射。
-- 区域选择目前仅支持手动矩形区域。
+仍需验证：真实 Sony ARW、不同相机/广色域 ICC、大 PNG 峰值、不同 DPI 真机观感。预览图的极小区域精度有限；规则无法判断人物语义或替代创作意图。不提供完整 RAW 显影或 Photoshop 自动控制。

@@ -1,15 +1,21 @@
 """学习会话的 SQLite 持久化。"""
+
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 
 from framesense.learning.models import LearningSession
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = (
+    Path(sys.executable).parent
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parent.parent.parent
+)
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "colorlab_sessions.db"
 
 _SCHEMA = """
@@ -47,8 +53,9 @@ def _now() -> str:
 def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
     path = _resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    conn = sqlite3.connect(str(path), timeout=5)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(_SCHEMA)
     conn.commit()
     return conn
@@ -65,8 +72,12 @@ def _to_model(row: sqlite3.Row) -> LearningSession:
         final_path=row["final_path"],
         mode=row["mode"],
         notes=row["notes"] or "",
-        reference_region=json.loads(row["reference_region"]) if row["reference_region"] else None,
-        source_region=json.loads(row["source_region"]) if row["source_region"] else None,
+        reference_region=(
+            json.loads(row["reference_region"]) if row["reference_region"] else None
+        ),
+        source_region=(
+            json.loads(row["source_region"]) if row["source_region"] else None
+        ),
         guidance_json=json.loads(row["guidance_json"] or "{}"),
         analysis_json=json.loads(row["analysis_json"] or "{}"),
     )
@@ -110,8 +121,16 @@ def update_session(session: LearningSession, db_path: str | Path | None = None) 
                 session.final_path,
                 session.mode,
                 session.notes,
-                json.dumps(session.reference_region.model_dump()) if session.reference_region else None,
-                json.dumps(session.source_region.model_dump()) if session.source_region else None,
+                (
+                    json.dumps(session.reference_region.model_dump())
+                    if session.reference_region
+                    else None
+                ),
+                (
+                    json.dumps(session.source_region.model_dump())
+                    if session.source_region
+                    else None
+                ),
                 json.dumps(session.guidance_json, ensure_ascii=False),
                 json.dumps(session.analysis_json, ensure_ascii=False),
                 session.id,
@@ -122,7 +141,9 @@ def update_session(session: LearningSession, db_path: str | Path | None = None) 
         conn.close()
 
 
-def list_sessions(limit: int = 20, db_path: str | Path | None = None) -> list[LearningSession]:
+def list_sessions(
+    limit: int = 20, db_path: str | Path | None = None
+) -> list[LearningSession]:
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
@@ -133,10 +154,14 @@ def list_sessions(limit: int = 20, db_path: str | Path | None = None) -> list[Le
         conn.close()
 
 
-def get_session(session_id: int, db_path: str | Path | None = None) -> LearningSession | None:
+def get_session(
+    session_id: int, db_path: str | Path | None = None
+) -> LearningSession | None:
     conn = get_connection(db_path)
     try:
-        row = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
         return _to_model(row) if row else None
     finally:
         conn.close()
@@ -158,6 +183,19 @@ def missing_paths(session: LearningSession) -> list[str]:
     if session.final_path:
         paths.append(session.final_path)
     return [p for p in paths if not Path(p).exists()]
+
+
+def list_session_summaries(limit=30, offset=0, db_path=None) -> list[dict]:
+    """列表只取元数据；选中后再加载较大的分析记录。"""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id,title,updated_at,source_path,mode FROM sessions ORDER BY id DESC LIMIT ? OFFSET ?",
+            (max(1, min(int(limit), 100)), max(0, int(offset))),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def relink_paths(

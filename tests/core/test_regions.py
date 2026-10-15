@@ -1,4 +1,5 @@
 """区域选择与区域差异测试。"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -63,3 +64,22 @@ def test_region_difference_same_region_zero():
     diff = region_difference(stats, stats)
     assert diff["delta_e_cie76"] == pytest.approx(0, abs=0.01)
     assert diff["luma_delta"] == pytest.approx(0, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "region", [Region(100, 0, 10, 10), Region(0, 100, 10, 10), Region(50, 50, -5, 10)]
+)
+def test_wholly_outside_and_negative_regions_are_rejected(region):
+    with pytest.raises(ValueError):
+        validate_region(region, (64, 64))
+
+
+def test_last_pixel_boundary_is_half_open():
+    assert validate_region(Region(62, 62, 2, 2), (64, 64)) == Region(62, 62, 2, 2)
+
+
+def test_region_lab_allocations_are_bounded():
+    image = np.zeros((2000, 3000, 3), dtype=np.uint8)
+    stats = compute_region_stats(image, Region(0, 0, 3000, 2000), max_side=64)
+    assert stats.pixel_count == 6_000_000
+    assert stats.sample_count <= 64**2

@@ -1,4 +1,5 @@
 """色彩管理测试。"""
+
 from __future__ import annotations
 
 import io
@@ -42,6 +43,20 @@ def test_convert_with_embedded_icc():
 
 
 def test_convert_with_invalid_icc_falls_back():
-    converted, meta = convert_to_srgb(Image.new("RGB", (4, 4)), icc_profile=b"not-an-icc")
+    converted, meta = convert_to_srgb(
+        Image.new("RGB", (4, 4)), icc_profile=b"not-an-icc"
+    )
     assert meta["profile_source"] == "assumed"
     assert "icc_error" in meta
+
+
+def test_non_srgb_lab_profile_is_actually_transformed():
+    # Encoded LAB (128,128,128) is a neutral ~50 L* gray; blindly treating the
+    # input bytes as RGB would yield 128 instead of the profile transform.
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
+    image = Image.new("LAB", (8, 8), (128, 128, 128))
+    converted, meta = convert_to_srgb(image, profile)
+    pixel = converted.getpixel((0, 0))
+    assert meta["profile_source"] == "embedded"
+    assert max(pixel) - min(pixel) <= 2
+    assert 115 <= pixel[0] <= 123
