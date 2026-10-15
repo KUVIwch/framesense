@@ -28,3 +28,4 @@ build/
 
 # 私人任务附件，不属于软件源码
 .codex-remote-attachments/
+!packaging/colorlab.spec
