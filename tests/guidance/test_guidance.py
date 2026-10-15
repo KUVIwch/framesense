@@ -1,4 +1,5 @@
 """调色指导引擎测试。"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -37,7 +38,10 @@ def test_guidance_detects_brightness_warmth_saturation():
     assert "色温" in targets
     assert "饱和度" in targets
     assert any(o.kind == "fact" for o in guidance.observations)
-    assert all(step.evidence_level in {"fact", "inference", "suggestion"} for step in guidance.steps)
+    assert all(
+        step.evidence_level in {"fact", "inference", "suggestion"}
+        for step in guidance.steps
+    )
 
 
 def test_guidance_identical_images_minimal_steps():
@@ -52,9 +56,17 @@ def test_guidance_region_diffs_add_local_steps():
     source = compute_image_stats(_make_image(bright=False, warm=False, saturated=False))
     target = compute_image_stats(_make_image(bright=True, warm=True, saturated=True))
     region_diffs = [
-        {"delta_e_cie2000": 18.5, "luma_delta": 20.0, "chroma_delta": 5.0, "a_delta": 10, "b_delta": 8}
+        {
+            "delta_e_cie2000": 18.5,
+            "luma_delta": 20.0,
+            "chroma_delta": 5.0,
+            "a_delta": 10,
+            "b_delta": 8,
+        }
     ]
-    guidance = generate_guidance(target_stats=target, source_stats=source, region_diffs=region_diffs)
+    guidance = generate_guidance(
+        target_stats=target, source_stats=source, region_diffs=region_diffs
+    )
     assert any("对应区域" in step.target for step in guidance.steps)
     assert guidance.assumptions
 
@@ -80,3 +92,86 @@ def test_guidance_step_validation():
             action="x",
             evidence_level="invalid",
         )
+
+
+def test_tonal_color_uses_grading_wheels_and_skips_absent_bands():
+    target = compute_image_stats(_rgb((32, 32), (150, 120, 100)))
+    source = compute_image_stats(_rgb((32, 32), (100, 120, 150)))
+    guidance = generate_guidance(target, source)
+    tonal = [step for step in guidance.steps if "色偏" in step.target]
+    assert tonal
+    assert all("颜色分级" in step.tool for step in tonal)
+    assert all("中间调" in step.target for step in tonal)
+
+
+def test_guidance_explains_scene_and_parameter_uncertainty():
+    stats = compute_image_stats(_rgb((32, 32), (120, 120, 120)))
+    guidance = generate_guidance(stats, stats)
+    text = " ".join(
+        guidance.warnings
+        + guidance.assumptions
+        + [o.description for o in guidance.observations]
+    )
+    assert "场景" in text
+    assert "JPEG" in text
+    assert "经验" in text
+
+
+def test_displayed_deltas_follow_source_minus_reference_and_actions_still_correct():
+    from dataclasses import replace
+
+    base = compute_image_stats(_rgb((32, 32), (120, 120, 120)))
+    source = replace(
+        base,
+        mean_brightness=60,
+        brightness_std=10,
+        mean_chroma=20,
+        color_cast_lab={"a": 5, "b": 8},
+        midtone_tint_lab={"a": 5, "b": 8},
+    )
+    target = replace(
+        base,
+        mean_brightness=180,
+        brightness_std=30,
+        mean_chroma=10,
+        color_cast_lab={"a": 0, "b": 0},
+        midtone_tint_lab={"a": 0, "b": 0},
+    )
+    guidance = generate_guidance(target, source)
+    facts = [
+        observation.description
+        for observation in guidance.observations
+        if observation.kind == "fact"
+    ]
+    assert "原片 − 参考 -120.0/255" in facts[0]
+    assert "原片 − 参考 +10.00" in facts[1]
+    assert "Lab L*" in facts[0]
+    assert "曝光 EV" in facts[0]
+    steps = {step.target: step for step in guidance.steps}
+    expected = {
+        "曝光/整体亮度": "-120.0",
+        "对比度": "-20.0",
+        "色温": "+8.00",
+        "色调": "+5.00",
+        "饱和度": "+10.00",
+    }
+    for target_name, delta in expected.items():
+        step = steps[target_name]
+        assert "原片 − 参考" in step.observed_difference
+        assert delta in step.observed_difference
+        assert delta in step.basis
+    assert "提升" in steps["曝光/整体亮度"].action
+    assert "增强" in steps["对比度"].action
+    assert "降低" in steps["饱和度"].action
+    assert "偏冷" in steps["色温"].action
+    assert "偏绿" in steps["色调"].action
+    assert "a* +5.00，b* +8.00" in steps["中间调色偏"].observed_difference
+
+
+def test_color_axis_measurements_are_not_claimed_as_white_balance_facts():
+    source = compute_image_stats(_rgb((32, 32), (150, 120, 100)))
+    reference = compute_image_stats(_rgb((32, 32), (100, 120, 150)))
+    steps = {step.target: step for step in generate_guidance(reference, source).steps}
+    assert "不是白平衡测量" in steps["色温"].observed_difference
+    assert "不能单独确定白平衡" in steps["色调"].observed_difference
+    assert steps["色温"].evidence_level == "suggestion"

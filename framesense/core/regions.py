@@ -1,4 +1,5 @@
 """矩形区域选择与区域统计。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,14 +22,18 @@ class Region:
 def clamp_region(region: Region, image_shape: tuple[int, int]) -> Region:
     """把区域限制在图像边界内。"""
     height, width = image_shape[:2]
-    x = max(0, min(region.x, width - 1))
-    y = max(0, min(region.y, height - 1))
+    if height < 1 or width < 1:
+        raise ValueError("图像为空")
+    x = max(0, min(region.x, width))
+    y = max(0, min(region.y, height))
     x2 = max(x, min(region.x + region.width, width))
     y2 = max(y, min(region.y + region.height, height))
     return Region(x, y, x2 - x, y2 - y)
 
 
-def validate_region(region: Region, image_shape: tuple[int, int], min_pixels: int = 4) -> Region:
+def validate_region(
+    region: Region, image_shape: tuple[int, int], min_pixels: int = 4
+) -> Region:
     """校验并规范化区域：越界裁剪、空区域/过小区域抛错。"""
     r = clamp_region(region, image_shape)
     if r.width <= 0 or r.height <= 0:
@@ -49,13 +54,25 @@ class RegionStats:
     mean_luma: float
     mean_chroma: float
     dominant_colors: list[dict]
+    sample_count: int = 0
+    measurement_note: str = ""
 
 
-def compute_region_stats(rgb: np.ndarray, region: Region) -> RegionStats:
+def compute_region_stats(
+    rgb: np.ndarray, region: Region, *, max_side: int = 512, min_pixels: int = 4
+) -> RegionStats:
     """计算矩形区域的颜色与明暗统计。"""
-    r = validate_region(region, rgb.shape)
-    patch = rgb[r.y : r.y + r.height, r.x : r.x + r.width].astype(np.float32)
-    lab = srgb_to_lab(patch.astype(np.uint8))
+    from framesense.core.stats import _downscale
+
+    if rgb.ndim != 3 or rgb.shape[2] != 3:
+        raise ValueError("输入必须是 HxWx3 RGB 数组")
+    if max_side < 1:
+        raise ValueError("分析尺寸必须大于零")
+    r = validate_region(region, rgb.shape, min_pixels=min_pixels)
+    patch = _downscale(
+        rgb[r.y : r.y + r.height, r.x : r.x + r.width], max_side=max_side
+    )
+    lab = srgb_to_lab(patch)
     mean_lab = [
         float(np.mean(lab[..., 0])),
         float(np.mean(lab[..., 1])),
@@ -64,12 +81,14 @@ def compute_region_stats(rgb: np.ndarray, region: Region) -> RegionStats:
     mean_rgb = [float(np.mean(patch[..., c])) for c in range(3)]
     return RegionStats(
         region=r,
-        pixel_count=int(patch.shape[0] * patch.shape[1]),
+        pixel_count=r.width * r.height,
         mean_rgb=mean_rgb,
         mean_lab=mean_lab,
         mean_luma=mean_lab[0],
-        mean_chroma=float(np.sqrt(mean_lab[1] ** 2 + mean_lab[2] ** 2)),
-        dominant_colors=_dominant_colors(patch.astype(np.uint8)),
+        mean_chroma=float(np.mean(np.hypot(lab[..., 1], lab[..., 2]))),
+        dominant_colors=_dominant_colors(patch),
+        sample_count=int(patch.shape[0] * patch.shape[1]),
+        measurement_note="区域均值与颜色分布基于有限分辨率采样；ΔE 比较区域平均 Lab，不能描述区域内部纹理差异。",
     )
 
 
@@ -94,4 +113,5 @@ def region_difference(stats_a: RegionStats, stats_b: RegionStats) -> dict:
         "chroma_delta": round(stats_b.mean_chroma - stats_a.mean_chroma, 3),
         "a_delta": round(stats_b.mean_lab[1] - stats_a.mean_lab[1], 3),
         "b_delta": round(stats_b.mean_lab[2] - stats_a.mean_lab[2], 3),
+        "note": "ΔE 是两块区域平均 Lab 的距离；差值为原片减参考图。仅在对应内容、相近光照下解读，混合颜色与纹理可能被均值掩盖。",
     }

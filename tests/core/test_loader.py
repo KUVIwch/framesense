@@ -1,4 +1,5 @@
 """图像只读加载测试。"""
+
 from __future__ import annotations
 
 import io
@@ -86,3 +87,37 @@ def test_make_preview_downscale():
 def test_make_preview_no_upscale():
     rgb = np.zeros((100, 100, 3), dtype=np.uint8)
     assert make_preview(rgb, max_side=1024).shape == (100, 100, 3)
+
+
+def test_exif_orientation_is_applied_before_dimensions(tmp_path):
+    path = tmp_path / "竖幅照片.jpg"
+    image = Image.new("RGB", (40, 20), (10, 20, 30))
+    exif = Image.Exif()
+    exif[274] = 6
+    image.save(path, exif=exif)
+    loaded = load_image(path)
+    assert (loaded.width, loaded.height) == (20, 40)
+    assert loaded.rgb.shape == (40, 20, 3)
+
+
+def test_bounded_loading_preserves_original_dimensions(tmp_path):
+    path = tmp_path / "large.jpg"
+    Image.new("RGB", (2400, 1600), (30, 100, 150)).save(path)
+    loaded = load_image(path, max_side=400, preview_max_side=800)
+    assert (loaded.width, loaded.height) == (2400, 1600)
+    assert max(loaded.rgb.shape[:2]) <= 400
+    assert max(loaded.preview_rgb.shape[:2]) <= 800
+    assert load_image(path).rgb.shape == (1600, 2400, 3)
+
+
+def test_invalid_icc_is_visible_in_metadata(tmp_path):
+    path = tmp_path / "invalid-profile.png"
+    Image.new("RGB", (10, 10)).save(path, icc_profile=b"broken ICC")
+    loaded = load_image(path)
+    assert loaded.icc_error
+    assert loaded.profile_source == "assumed"
+
+
+def test_corrupt_supported_format_reports_decode_error():
+    with pytest.raises(ValueError, match="图片解码失败"):
+        load_image_bytes(b"not a png", "image.png")
